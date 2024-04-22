@@ -2,14 +2,16 @@
 # Project Part B: Game Playing Agent
 
 import itertools
+import numpy as np
 
 from agent.helpers import find_starting_positions
 from agent.placement_algorithms import find_all_placements, PlacementProblem
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
-first_pieces = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
+FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
                 PlaceAction(Coord(7, 5), Coord(7, 6), Coord(7, 7), Coord(7, 8))]
+AB_CUTOFF = 6
 
 
 class Game:
@@ -52,8 +54,8 @@ class Game:
 
         else:
             # Pick one of the two starting coordinates
-            rows = {first_pieces[0].c1.r, first_pieces[0].c2.r, first_pieces[0].c3.r, first_pieces[0].c4.r}
-            cols = {first_pieces[0].c1.c, first_pieces[0].c2.c, first_pieces[0].c3.c, first_pieces[0].c4.c}
+            rows = {FIRST_PIECES[0].c1.r, FIRST_PIECES[0].c2.r, FIRST_PIECES[0].c3.r, FIRST_PIECES[0].c4.r}
+            cols = {FIRST_PIECES[0].c1.c, FIRST_PIECES[0].c2.c, FIRST_PIECES[0].c3.c, FIRST_PIECES[0].c4.c}
             same_row, same_col = False
             self.first = False
 
@@ -68,8 +70,8 @@ class Game:
                     break
 
             if not (same_row and same_col):
-                return first_pieces[0]
-            return first_pieces[1]
+                return FIRST_PIECES[0]
+            return FIRST_PIECES[1]
 
     def result(self, state, action: PlaceAction, colour: PlayerColor):
         """Return the state that results from making a move from a state."""
@@ -127,10 +129,44 @@ class Game:
         """Return True if this is a final state for the game."""
         return not self.actions(state, colour)
 
-    def to_move(self, state):
-        """Return the player whose move it is in this state."""
-        return state.to_move
 
-    def display(self, state):
-        """Print or otherwise display the state."""
-        print(state)
+def alpha_beta_cutoff_search(state, game, cutoff_test=None, eval_fn=None):
+    """Search game to determine best action; use alpha-beta pruning.
+    This version cuts off search and uses an evaluation function."""
+
+    # Functions used by alpha_beta
+    def max_value(state, alpha, beta, depth):
+        if cutoff_test(state, depth):
+            return eval_fn(state)
+        v = -np.inf
+        for a in game.actions(state):
+            v = max(v, min_value(game.result(state, a, game.player), alpha, beta, depth + 1))
+            if v >= beta:
+                return v
+            alpha = max(alpha, v)
+        return v
+
+    def min_value(state, alpha, beta, depth):
+        if cutoff_test(state, depth):
+            return eval_fn(state)
+        v = np.inf
+        for a in game.actions(state):
+            v = min(v, max_value(game.result(state, a, game.otherPlayer), alpha, beta, depth + 1))
+            if v <= alpha:
+                return v
+            beta = min(beta, v)
+        return v
+
+    # Body of alpha_beta_cutoff_search starts here:
+    # The default test cuts off at depth d or at a terminal state
+    cutoff_test = cutoff_test or (lambda state, depth: depth > AB_CUTOFF or game.terminal_test(state))
+    eval_fn = eval_fn or (lambda state: game.utility(state, game.player))
+    best_score = -np.inf
+    beta = np.inf
+    best_action = None
+    for a in game.actions(state):
+        v = min_value(game.result(state, a), best_score, beta, 1)
+        if v > best_score:
+            best_score = v
+            best_action = a
+    return best_action
