@@ -1,9 +1,7 @@
 # COMP30024 Artificial Intelligence, Semester 1 2024
 # Project Part B: Game Playing Agent
 
-import numpy as np
-
-from referee.game import PlayerColor, Direction, Coord, BOARD_N, Board
+from referee.game import PlayerColor, Direction, Coord, BOARD_N, Board, PlaceAction
 
 
 def find_starting_positions(board: dict[Coord, PlayerColor], playerColor: PlayerColor):
@@ -16,24 +14,13 @@ def find_starting_positions(board: dict[Coord, PlayerColor], playerColor: Player
         if color == playerColor:
             player_pieces.append(coord)
 
-    # First placement of the game, generate a random coordinate to place on
-    if not player_pieces:
-        def find_rand_coord():
-            while True:
-                random_coord = Coord(np.random.randint(BOARD_N), np.random.randint(BOARD_N))
-                if random_coord not in board:
-                    return random_coord
+    for coord in player_pieces:
+        # We can place new squares in these four directions
+        possible_positions = [coord + Direction.Up, coord + Direction.Down, coord + Direction.Left,
+                              coord + Direction.Right]
 
-        starting_positions.append(find_rand_coord())
-
-    else:
-        for coord in player_pieces:
-            # We can place new squares in these four directions
-            possible_positions = [coord + Direction.Up, coord + Direction.Down, coord + Direction.Left,
-                                  coord + Direction.Right]
-
-            for element in possible_positions:
-                if element not in board:
-                    starting_positions.append(element)
+        for element in possible_positions:
+            if element not in board:
+                starting_positions.append(element)
 
     return starting_positions
