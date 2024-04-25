@@ -2,7 +2,7 @@
 # Project Part B: Game Playing Agent
 
 from agent.game import Game
-from referee.game import PlayerColor, Action, PlaceAction
+from referee.game import PlayerColor, Action, PlaceAction, Coord
 
 
 class Agent:
@@ -16,14 +16,13 @@ class Agent:
         This constructor method runs when the referee instantiates the agent.
         Any setup and/or precomputation should be done here.
         """
-        """
-        self._color = color
+
         match color:
             case PlayerColor.RED:
                 print("Testing: I am playing as RED")
             case PlayerColor.BLUE:
                 print("Testing: I am playing as BLUE")
-        """
+
         self.state = {}
         self.game = Game(color)
 
@@ -38,7 +37,7 @@ class Agent:
         # the initial moves of the game, so you should use some game playing
         # technique(s) to determine the best action to take.
         """
-        match self.game.player:
+        match self.game.ourPlayer:
             case PlayerColor.RED:
                 print("Testing: RED is playing a PLACE action")
                 return PlaceAction(
@@ -56,9 +55,8 @@ class Agent:
                     Coord(2, 6)
                 )
         """
-
         if self.game.first:
-            return self.game.actions(self.state, self.game.player)
+            return self.game.actions(self.state, self.game.ourPlayer)
         else:
             # call alpha beta search here
             pass
@@ -72,10 +70,9 @@ class Agent:
         # There is only one action type, PlaceAction
         place_action: PlaceAction = action
         c1, c2, c3, c4 = place_action.coords
-
         self.state = self.game.result(self.state, place_action, color)
 
         # Here we are just printing out the PlaceAction coordinates for
         # demonstration purposes. You should replace this with your own logic
         # to update your agent's internal game state representation.
-        # print(f"Testing: {color} played PLACE action: {c1}, {c2}, {c3}, {c4}")
+        print(f"Testing: {color} played PLACE action: {c1}, {c2}, {c3}, {c4}")

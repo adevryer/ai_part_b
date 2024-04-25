@@ -4,14 +4,14 @@
 import itertools
 import numpy as np
 
-from agent.helpers import find_starting_positions, init_board
+from agent.helpers import find_starting_positions, init_board, board_hash
 from agent.placement_algorithms import find_all_placements, PlacementProblem
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
                 PlaceAction(Coord(7, 5), Coord(7, 6), Coord(7, 7), Coord(7, 8))]
-AB_CUTOFF = 6
+AB_CUTOFF = 4
 
 
 class Game:
@@ -25,10 +25,11 @@ class Game:
 
     def __init__(self, colour: PlayerColor):
         """The constructor specifies the initial board."""
-        self.player = colour
+        self.ourPlayer = colour
         self.otherPlayer = (PlayerColor.BLUE if colour == PlayerColor.RED else PlayerColor.RED)
         self.first = True
         self.hash_table = init_board()
+        self.utility_values = {}
 
     def actions(self, state, colour):
         """Return a list of the allowable moves at this point."""
@@ -55,24 +56,17 @@ class Game:
 
         else:
             # Pick one of the two starting coordinates
-            rows = {FIRST_PIECES[0].c1.r, FIRST_PIECES[0].c2.r, FIRST_PIECES[0].c3.r, FIRST_PIECES[0].c4.r}
-            cols = {FIRST_PIECES[0].c1.c, FIRST_PIECES[0].c2.c, FIRST_PIECES[0].c3.c, FIRST_PIECES[0].c4.c}
-            same_row, same_col = False
             self.first = False
+            possible_placement = [Coord(FIRST_PIECES[0].c1.r, FIRST_PIECES[0].c1.c),
+                                  Coord(FIRST_PIECES[0].c2.r, FIRST_PIECES[0].c2.c),
+                                  Coord(FIRST_PIECES[0].c3.r, FIRST_PIECES[0].c3.c),
+                                  Coord(FIRST_PIECES[0].c4.r, FIRST_PIECES[0].c4.c)]
 
-            for element in rows:
-                if element in state.keys:
-                    same_row = True
-                    break
+            for element in possible_placement:
+                if element in state.keys():
+                    return FIRST_PIECES[1]
 
-            for element in cols:
-                if element in state.keys:
-                    same_col = True
-                    break
-
-            if not (same_row and same_col):
-                return FIRST_PIECES[0]
-            return FIRST_PIECES[1]
+            return FIRST_PIECES[0]
 
     def result(self, state, action: PlaceAction, colour: PlayerColor):
         """Return the state that results from making a move from a state."""
@@ -122,36 +116,47 @@ class Game:
 
         return new_state
 
-    def utility(self, state, player):
+    def utility(self, state):
         """Return the value of this final state to player."""
-        raise NotImplementedError
+        hash_val = board_hash(state, self.hash_table)
+        if hash_val not in self.utility_values.keys():
+            # calculate utility of the board state
+            # need to implement this
+            pass
+        else:
+            return self.utility_values[hash_val]
 
     def terminal_test(self, state, colour):
         """Return True if this is a final state for the game."""
         return not self.actions(state, colour)
 
 
-def alpha_beta_cutoff_search(state, game, cutoff_test=None, eval_fn=None):
+def alpha_beta_cutoff_search(state, game):
     """Search game to determine best action; use alpha-beta pruning.
     This version cuts off search and uses an evaluation function."""
+    def cutoff_test(state, depth, player):
+        if depth > AB_CUTOFF or game.terminal_test(state, player):
+            return True
+        return False
 
-    # Functions used by alpha_beta
+    # simulate move for our player, we want to maximise our outcome
     def max_value(state, alpha, beta, depth):
-        if cutoff_test(state, depth):
-            return eval_fn(state)
+        if cutoff_test(state, depth, game.ourPlayer):
+            return game.utility(state)
         v = -np.inf
-        for a in game.actions(state):
-            v = max(v, min_value(game.result(state, a, game.player), alpha, beta, depth + 1))
+        for a in game.actions(state, game.ourPlayer):
+            v = max(v, min_value(game.result(state, a, game.ourPlayer), alpha, beta, depth + 1))
             if v >= beta:
                 return v
             alpha = max(alpha, v)
         return v
 
+    # simulate move for the other player, they want to minimise our outcome
     def min_value(state, alpha, beta, depth):
-        if cutoff_test(state, depth):
-            return eval_fn(state)
+        if cutoff_test(state, depth, game.otherPlayer):
+            return game.utility(state)
         v = np.inf
-        for a in game.actions(state):
+        for a in game.actions(state, game.otherPlayer):
             v = min(v, max_value(game.result(state, a, game.otherPlayer), alpha, beta, depth + 1))
             if v <= alpha:
                 return v
@@ -160,13 +165,13 @@ def alpha_beta_cutoff_search(state, game, cutoff_test=None, eval_fn=None):
 
     # Body of alpha_beta_cutoff_search starts here:
     # The default test cuts off at depth d or at a terminal state
-    cutoff_test = cutoff_test or (lambda state, depth: depth > AB_CUTOFF or game.terminal_test(state))
-    eval_fn = eval_fn or (lambda state: game.utility(state, game.player))
     best_score = -np.inf
     beta = np.inf
     best_action = None
-    for a in game.actions(state):
-        v = min_value(game.result(state, a), best_score, beta, 1)
+
+    # we play first, play all possible moves and start alpha beta pruning
+    for a in game.actions(state, game.ourPlayer):
+        v = min_value(game.result(state, a, game.ourPlayer), best_score, beta, 1)
         if v > best_score:
             best_score = v
             best_action = a
