@@ -4,7 +4,8 @@
 import itertools
 import numpy as np
 
-from agent.helpers import find_starting_positions, init_board, board_hash
+from agent.hashing import init_board, board_hash
+from agent.helpers import find_starting_positions
 from agent.placement_algorithms import find_all_placements, PlacementProblem
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
