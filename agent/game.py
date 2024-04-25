@@ -4,7 +4,7 @@
 import itertools
 import numpy as np
 
-from agent.helpers import find_starting_positions
+from agent.helpers import find_starting_positions, init_board
 from agent.placement_algorithms import find_all_placements, PlacementProblem
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
@@ -28,6 +28,7 @@ class Game:
         self.player = colour
         self.otherPlayer = (PlayerColor.BLUE if colour == PlayerColor.RED else PlayerColor.RED)
         self.first = True
+        self.hash_table = init_board()
 
     def actions(self, state, colour):
         """Return a list of the allowable moves at this point."""
