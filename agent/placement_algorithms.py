@@ -1,9 +1,31 @@
 # COMP30024 Artificial Intelligence, Semester 1 2024
 # Project Part A: Single Player Tetress
 
-from referee.game import Direction
+from referee.game import Direction, Coord, PlayerColor
 
 SEARCH_LIMIT = 4
+
+
+def find_starting_positions(board: dict[Coord, PlayerColor], player: PlayerColor):
+    """ Finds the possible locations where pieces can be placed given the current board state """
+    player_pieces = []
+    starting_positions = []
+
+    # Find all player pieces currently on the board
+    for coord, color in board.items():
+        if color == player:
+            player_pieces.append(coord)
+
+    for coord in player_pieces:
+        # We can place new squares in these four directions
+        possible_positions = [coord + Direction.Up, coord + Direction.Down, coord + Direction.Left,
+                              coord + Direction.Right]
+
+        for element in possible_positions:
+            if element not in board:
+                starting_positions.append(element)
+
+    return starting_positions
 
 
 class PlacementNode:

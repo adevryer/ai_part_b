@@ -7,6 +7,7 @@ from referee.game import PlayerColor, Coord, BOARD_N
 
 NUM_PLAYERS = 2
 
+
 def init_board():
     hash_table = [[[random.randint(0, pow(2, 16)) for k in range(NUM_PLAYERS)] for j in range(BOARD_N)]
                   for i in range(BOARD_N)]

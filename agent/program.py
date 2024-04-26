@@ -56,7 +56,7 @@ class Agent:
                 )
         """
         if self.game.first:
-            return self.game.actions(self.state, self.game.ourPlayer)
+            return self.game.actions(self.state, self.game.our_player)
         else:
             # call alpha beta search here
             pass
