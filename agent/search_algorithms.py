@@ -6,28 +6,6 @@ from referee.game import Direction, Coord, PlayerColor
 SEARCH_LIMIT = 4
 
 
-def find_starting_positions(board: dict[Coord, PlayerColor], player: PlayerColor):
-    """ Finds the possible locations where pieces can be placed given the current board state """
-    player_pieces = []
-    starting_positions = []
-
-    # Find all player pieces currently on the board
-    for coord, color in board.items():
-        if color == player:
-            player_pieces.append(coord)
-
-    for coord in player_pieces:
-        # We can place new squares in these four directions
-        possible_positions = [coord + Direction.Up, coord + Direction.Down, coord + Direction.Left,
-                              coord + Direction.Right]
-
-        for element in possible_positions:
-            if element not in board:
-                starting_positions.append(element)
-
-    return starting_positions
-
-
 class PlacementNode:
     """ A node for a potential placement of a square on the board to form a piece. Adapted and modified from the
     AIMA's Python Library function for a search tree node."""
@@ -89,9 +67,31 @@ class PlacementProblem:
         return possible_moves
 
 
+def find_starting_positions(board: dict[Coord, PlayerColor], player: PlayerColor):
+    """ Finds the possible locations where pieces can be placed given the current board state """
+    player_pieces = []
+    starting_positions = []
+
+    # Find all player pieces currently on the board
+    for coord, color in board.items():
+        if color == player:
+            player_pieces.append(coord)
+
+    for coord in player_pieces:
+        # We can place new squares in these four directions
+        possible_positions = [coord + Direction.Up, coord + Direction.Down, coord + Direction.Left,
+                              coord + Direction.Right]
+
+        for element in possible_positions:
+            if element not in board:
+                starting_positions.append(element)
+
+    return starting_positions
+
+
 def find_all_placements(problem, limit=SEARCH_LIMIT):
     """ Recursively finds all possible combinations of pieces which can be placed from a given starting coordinate.
-    Adapted from AIMA's Python Library function for depth-limited search"""
+    Adapted from AIMA's Python Library function for depth-limited search. """
 
     placements = []
 
@@ -108,6 +108,49 @@ def find_all_placements(problem, limit=SEARCH_LIMIT):
             for child in node.expand(curr_problem):
                 if child not in node.path():
                     recursive_dls(child, curr_problem, curr_limit - 1)
+
+    recursive_dls(PlacementNode(problem.initial, None), problem, limit)
+    return placements
+
+
+def find_one_placement(problem, limit=SEARCH_LIMIT):
+    """ Find if we are able to place at least one piece at the given coordinate. Adapted from AIMA's Python Library
+    function for depth-limited search. """
+
+    def recursive_dls(node, curr_problem, curr_limit):
+        if curr_limit == 1:
+            return True
+
+        else:
+            # Find more possible places where we can place squares and search recursively from there
+            for child in node.expand(curr_problem):
+                if child not in node.path():
+                    recursive_dls(child, curr_problem, curr_limit - 1)
+
+    return recursive_dls(PlacementNode(problem.initial, None), problem, limit)
+
+
+def find_holes(problem, limit=SEARCH_LIMIT):
+    """ Recursively finds all possible holes (gaps of empty squares of size less than 4) at a given coordinate.
+    Adapted from AIMA's Python Library function for depth-limited search."""
+
+    placements = []
+
+    def recursive_dls(node, curr_problem, curr_limit):
+        # Only continue checking if we cannot place a piece in the gap
+        if curr_limit != 1:
+            # Find more possible places where we can place squares and search recursively from there
+            children = node.expand(curr_problem)
+
+            if not children:
+                new_path = sorted(node.path())
+                if new_path not in placements:
+                    placements.append(new_path)
+
+            else:
+                for child in children:
+                    if child not in node.path() and (curr_limit - 1) > 1:
+                        recursive_dls(child, curr_problem, curr_limit - 1)
 
     recursive_dls(PlacementNode(problem.initial, None), problem, limit)
     return placements
