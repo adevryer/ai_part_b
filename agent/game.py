@@ -15,8 +15,9 @@ from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(3, 3), Coord(3, 4)),
-                PlaceAction(Coord(7, 6), Coord(7, 7), Coord(8, 6), Coord(8, 7))]
-AB_CUTOFF = 2
+                PlaceAction(Coord(7, 6), Coord(7, 7), Coord(8, 7), Coord(8, 8))]
+AB_CUTOFF = 4
+MAX_MOVES = 150
 
 
 class Game:
@@ -58,8 +59,8 @@ class Game:
                 place_actions.append(PlaceAction(element[0], element[1], element[2], element[3]))
 
             # Only return maximum of 50 PlaceActions to reduce branching factor
-            if len(place_actions) > 1000:
-                place_actions = sample(place_actions, 1000)
+            if len(place_actions) > 50:
+                place_actions = sample(place_actions, 50)
 
             return place_actions
 
@@ -125,7 +126,7 @@ class Game:
 
         return new_state
 
-    def utility(self, state):
+    def heuristic(self, state):
         """Return the value of this final state to player."""
         hash_val = board_hash(state, self.hash_table)
         if hash_val not in self.utility_values.keys():
@@ -135,6 +136,20 @@ class Game:
         else:
             #print("Being used yayayayay!!!!!")
             return self.utility_values[hash_val]
+
+    def utility(self, state, player, num_moves):
+        our_pieces, their_pieces = find_num_pieces(state, player)
+
+        # need to fix this a bit
+        if self.terminal_test(state, player):
+            return 1
+        elif num_moves > MAX_MOVES:
+            if our_pieces > their_pieces:
+                return 1
+            elif our_pieces < their_pieces:
+                return -1
+            else:
+                return 0
 
     def terminal_test(self, state, colour):
         """Return True if this is a final state for the game."""
@@ -155,15 +170,14 @@ def alpha_beta_cutoff_search(state, game):
         # print("now max")
         # print(f"DEPTH = {depth}")
         if cutoff_test(state, depth, game.our_player):
-            return game.utility(state)
+            return game.heuristic(state)
         v = -np.inf
-        #print("Expand...")
         actions = game.actions(state, game.our_player)
-        #print("Done!")
-        # print(f"LENGTH IS {len(actions)}")
-        for a in actions:
-            v = max(v, min_value(game.result(state, a, game.our_player), alpha, beta, depth + 1))
+
+        for move in actions:
+            v = max(v, min_value(game.result(state, move, game.our_player), alpha, beta, depth + 1))
             if v >= beta:
+                # print("Max Pruned")
                 return v
             alpha = max(alpha, v)
         return v
@@ -173,15 +187,14 @@ def alpha_beta_cutoff_search(state, game):
         # print("now min")
         # print(f"DEPTH = {depth}")
         if cutoff_test(state, depth, game.other_player):
-            return game.utility(state)
+            return game.heuristic(state)
         v = np.inf
-        #print("Expand...")
         actions = game.actions(state, game.other_player)
-        #print("Done!")
-        # print(f"LENGTH IS {len(actions)}")
-        for a in actions:
-            v = min(v, max_value(game.result(state, a, game.other_player), alpha, beta, depth + 1))
+
+        for move in actions:
+            v = min(v, max_value(game.result(state, move, game.other_player), alpha, beta, depth + 1))
             if v <= alpha:
+                # print("Min Pruned")
                 return v
             beta = min(beta, v)
         return v
@@ -191,6 +204,13 @@ def alpha_beta_cutoff_search(state, game):
     best_score = -np.inf
     beta = np.inf
     best_action = None
+
+    print("Now evaluating all moves...")
+    action = game.actions(state, game.our_player)
+    print(len(action))
+    for a in action:
+        game.heuristic(game.result(state, a, game.our_player))
+    print("Done!")
 
     # we play first, play all possible moves and start alpha beta pruning
     for a in game.actions(state, game.our_player):
@@ -205,9 +225,10 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     # finding available squares for player moves
     our_squares = find_starting_positions(state, game.our_player)
     their_squares = find_starting_positions(state, game.other_player)
-    our_moves = 0
-    their_moves = 0
+    our_moves = len(our_squares)
+    their_moves = len(their_squares)
 
+    """
     for position in our_squares:
         if find_one_placement(PlacementProblem(position, state)):
             our_moves += 1
@@ -215,6 +236,7 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     for position in their_squares:
         if find_one_placement(PlacementProblem(position, state)):
             their_moves += 1
+    """
 
     # finding number of squares on board
     our_pieces, their_pieces = find_num_pieces(state, game.our_player)
@@ -231,10 +253,9 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     col_weights = line_length_weight(col_len)
     num_good_len += col_weights[0]
     num_bad_len += col_weights[1]
-
+    """
     # find the holes with a size less than 4 on the board
     holes = []
-    num_holes = 0
     all_positions = our_squares + their_squares
     for position in all_positions:
         current_holes = find_holes(PlacementProblem(position, state))
@@ -243,10 +264,83 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
 
     # Remove any duplicate states from the list
     holes = list(holes for holes, _ in itertools.groupby(holes))
-    num_holes = len(holes)
+    """
+    num_holes = 0  #len(holes)
 
     weight = (MOVE_WEIGHT * (our_moves - their_moves) + PIECE_WEIGHT * (our_pieces - their_pieces) +
               LINE_WEIGHT * (num_good_len - num_bad_len) + HOLE_WEIGHT * num_holes)
 
     # print(weight)
     return weight
+
+
+class MCT_Node:
+    # Node in the Monte Carlo search tree, keeps track of the children states.
+    def __init__(self, state, game, num_moves=0, parent=None, parent_action=None, U=0, N=0):
+        # self.__dict__.update(parent=parent, state=state, U=U, N=N)
+        self.state = state
+        self.parent = parent
+        self.parent_action = parent_action
+        self.player = game.our_player if parent is None else (game.other_player if parent == game.our_player
+                                                              else game.our_player)
+        self.num_moves = num_moves
+        self.U = U
+        self.N = N
+        self.children = {}
+        # self.actions = None
+
+
+def ucb(n, C=1.4):
+    return np.inf if n.N == 0 else n.U / n.N + C * np.sqrt(np.log(n.parent.N) / n.N)
+
+
+def monte_carlo_tree_search(state, game, N=1000):
+    def select(n):
+        # select a leaf node in the tree
+        if n.children:
+            return select(max(n.children.keys(), key=ucb))
+        else:
+            return n
+
+    def expand(n):
+        # expand the leaf node by adding all its children states
+        if not n.children and not game.terminal_test(n.state, n.player):
+            n.children = {MCT_Node(game=game, state=game.result(n.state, action), parent=n, parent_action=action):
+                              action for action in game.actions(n.state)}
+        return select(n)
+
+    def simulate(game, state, first_player, num_moves):
+        # simulate the utility of current state by random picking a step
+        player = first_player
+        moves = num_moves
+        while not game.terminal_test(state, player) and not moves > MAX_MOVES:
+            action = random.choice(list(game.actions(state, player)))
+            state = game.result(state, action, player)
+            player = game.our_player if player == game.other_player else game.other_player
+            moves += 1
+
+        v = game.utility(state, player, moves)
+        return -v
+
+    def backprop(n, utility):
+        # passing the utility back to all parent nodes
+        if utility > 0:
+            n.U += utility
+        # draw state
+        if utility == 0:
+             n.U += 0.5
+        n.N += 1
+        if n.parent:
+            backprop(n.parent, -utility)
+
+    root = MCT_Node(state=state, game=game)
+
+    for i in range(N):
+        leaf = select(root)
+        child = expand(leaf)
+        result = simulate(game, child.state, child.player)
+        backprop(child, result)
+
+    max_state = max(root.children, key=lambda p: p.N)
+
+    return root.children.get(max_state)
