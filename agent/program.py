@@ -2,7 +2,7 @@
 # Project Part B: Game Playing Agent
 
 from referee.game import PlayerColor, Action, PlaceAction, Coord
-from agent.game import Game, alpha_beta_cutoff_search
+from .game import Game, alpha_beta_cutoff_search
 
 
 class Agent:

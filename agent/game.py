@@ -6,10 +6,10 @@ import random
 from random import sample
 import numpy as np
 
-from agent.hashing import init_board, board_hash
-from agent.helpers import (find_num_pieces, line_lengths, line_length_weight, MOVE_WEIGHT, PIECE_WEIGHT, LINE_WEIGHT,
+from .hashing import init_board, board_hash
+from .helpers import (find_num_pieces, line_lengths, line_length_weight, MOVE_WEIGHT, PIECE_WEIGHT, LINE_WEIGHT,
                            HOLE_WEIGHT)
-from agent.search_algorithms import (PlacementProblem, find_all_placements, find_starting_positions,
+from .search_algorithms import (PlacementProblem, find_all_placements, find_starting_positions,
                                      find_one_placement, find_holes)
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
