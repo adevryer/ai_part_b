@@ -1,8 +1,8 @@
 # COMP30024 Artificial Intelligence, Semester 1 2024
 # Project Part B: Game Playing Agent
 
-from agent.game import Game, alpha_beta_cutoff_search
 from referee.game import PlayerColor, Action, PlaceAction, Coord
+from agent.game import Game, alpha_beta_cutoff_search
 
 
 class Agent:
