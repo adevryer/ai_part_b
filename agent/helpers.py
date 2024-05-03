@@ -4,8 +4,8 @@
 from referee.game import PlayerColor, Coord, BOARD_N
 
 NUM_PLAYERS = 2
-GOOD_THRESHOLD = 5
-BAD_THRESHOLD = 7
+LOW_THRESHOLD = 2
+HIGH_THRESHOLD = 6
 
 MOVE_WEIGHT = 2
 PIECE_WEIGHT = 5
@@ -51,13 +51,13 @@ def line_lengths(board: dict[Coord, PlayerColor]):
 
 
 def line_length_weight(length_dict):
-    num_good_len = 0
-    num_bad_len = 0
+    num_high_len = 0
+    num_low_len = 0
 
     for element in length_dict.values():
-        if element > BAD_THRESHOLD:
-            num_bad_len += 1
-        elif element < GOOD_THRESHOLD:
-            num_good_len += 1
+        if element > HIGH_THRESHOLD:
+            num_high_len += 1
+        elif element < LOW_THRESHOLD:
+            num_low_len += 1
 
-    return num_good_len, num_bad_len
+    return num_high_len, num_low_len

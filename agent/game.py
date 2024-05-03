@@ -16,9 +16,9 @@ from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 # We will always be able to place one of these two pieces on our first go
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(3, 4)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
-AB_CUTOFF = 2
+AB_CUTOFF = 4
 MAX_MOVES = 150
-MAX_ACTIONS = 5
+MAX_ACTIONS = 10
 
 
 class Game:
@@ -59,10 +59,6 @@ class Game:
             # Turn these combinations into PlaceActions and return
             for element in possible_actions:
                 place_actions.append(PlaceAction(element[0], element[1], element[2], element[3]))
-
-            # Only return maximum of MAX_ACTIONS PlaceActions to reduce branching factor
-            if len(place_actions) > 50:
-                place_actions = sample(place_actions, 50)
 
             return place_actions
 
@@ -128,7 +124,7 @@ class Game:
 
         return new_state
 
-    def heuristic(self, state):
+    def heuristic(self, state, prev_state=None):
         """Return the value of this final state to player."""
         hash_val = board_hash(state, self.hash_table)
         if hash_val not in self.utility_values.keys():
@@ -161,9 +157,11 @@ class Game:
 def alpha_beta_cutoff_search(state, game):
     """Search game to determine best action; use alpha-beta pruning.
     This version cuts off search and uses an evaluation function."""
+    cutoff = int
+    branch_factor = int
 
     def cutoff_test(state, depth, player):
-        if depth > AB_CUTOFF or game.terminal_test(state, player):
+        if depth > cutoff or game.terminal_test(state, player):
             return True
         return False
 
@@ -173,7 +171,7 @@ def alpha_beta_cutoff_search(state, game):
             return game.heuristic(state)
         v = -np.inf
 
-        for move in select_best(state, game, game.our_player, min=False):
+        for move in select_best(state, game, game.our_player, False, branch_factor):
             v = max(v, min_value(game.result(state, move, game.our_player), alpha, beta, depth + 1))
             if v >= beta:
                 return v
@@ -186,7 +184,7 @@ def alpha_beta_cutoff_search(state, game):
             return game.heuristic(state)
         v = np.inf
 
-        for move in select_best(state, game, game.other_player, min=True):
+        for move in select_best(state, game, game.other_player, True, branch_factor):
             v = min(v, max_value(game.result(state, move, game.other_player), alpha, beta, depth + 1))
             if v <= alpha:
                 return v
@@ -199,17 +197,22 @@ def alpha_beta_cutoff_search(state, game):
     beta = np.inf
     best_action = None
 
-    """
-    print("Now evaluating all moves...")
-    action = game.actions(state, game.our_player)
-    print(len(action))
-    for a in action:
-        game.heuristic(game.result(state, a, game.our_player))
-    print("Done!")
-    """
+    print('all moves eval')
+    size = len(game.actions(state, game.our_player))
+    print(f'done: {size} moves available')
+    if size > 50:
+        cutoff = 2
+        branch_factor = 10
+    elif 25 < size <= 50:
+        cutoff = 4
+        branch_factor = 7
+    elif size < 25:
+        cutoff = 6
+        branch_factor = 4
+
 
     # we play first, play all possible moves and start alpha beta pruning
-    for a in select_best(state, game, game.our_player, min=False):
+    for a in select_best(state, game, game.our_player, False, branch_factor):
         v = min_value(game.result(state, a, game.our_player), best_score, beta, 1)
         if v > best_score:
             best_score = v
@@ -217,29 +220,34 @@ def alpha_beta_cutoff_search(state, game):
     return best_action
 
 
-def select_best(state, game, player, min):
+def select_best(state, game, player, min, select_amount):
+    #print('generating actions...')
     actions = game.actions(state, player)
+    #print('done!')
     scores = {}
+    #print('generating heuristics...')
     for move in actions:
         scores[move] = game.heuristic(game.result(state, move, player))
+    #print('done!')
 
     if min:
         keys = sorted(scores, key=scores.get, reverse=True)
-        return keys[0:MAX_ACTIONS]
     else:
         keys = sorted(scores, key=scores.get)
-        return keys[0:MAX_ACTIONS]
+
+    return keys[0:select_amount]
 
 
 
 
 def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     # finding available squares for player moves
-    our_squares = find_starting_positions(state, game.our_player)
-    their_squares = find_starting_positions(state, game.other_player)
+    # our_squares = find_starting_positions(state, game.our_player)
+    # their_squares = find_starting_positions(state, game.other_player)
     our_moves = 0 #len(our_squares)
     their_moves = 0 #len(their_squares)
 
+    """
     for position in our_squares:
         if find_one_placement(PlacementProblem(position, state)):
             our_moves += 1
@@ -247,22 +255,23 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     for position in their_squares:
         if find_one_placement(PlacementProblem(position, state)):
             their_moves += 1
+    """
 
     # finding number of squares on board
     our_pieces, their_pieces = find_num_pieces(state, game.our_player)
 
     # finding length of lines on board and if they are too long or not
     row_len, col_len = line_lengths(state)
-    num_good_len = 0
-    num_bad_len = 0
+    num_high_len = 0
+    num_low_len = 0
 
     row_weights = line_length_weight(row_len)
-    num_good_len += row_weights[0]
-    num_bad_len += row_weights[1]
+    num_high_len += row_weights[0]
+    num_low_len += row_weights[1]
 
     col_weights = line_length_weight(col_len)
-    num_good_len += col_weights[0]
-    num_bad_len += col_weights[1]
+    num_high_len += col_weights[0]
+    num_low_len += col_weights[1]
 
     # find the holes with a size less than 4 on the board
     """
@@ -276,10 +285,10 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     # Remove any duplicate states from the list
     holes = list(holes for holes, _ in itertools.groupby(holes))
     """
-    num_holes = 0 #len(holes)
+    num_holes = 0  #len(holes)
 
     weight = (MOVE_WEIGHT * (our_moves - their_moves) + PIECE_WEIGHT * (our_pieces - their_pieces) +
-              LINE_WEIGHT * (num_good_len - num_bad_len) + HOLE_WEIGHT * num_holes)
+              LINE_WEIGHT * (num_high_len - num_low_len) + HOLE_WEIGHT * num_holes)
 
     # print(weight)
     return weight
@@ -324,13 +333,14 @@ def monte_carlo_tree_search(state, game, N=1000):
         # simulate the utility of current state by random picking a step
         player = first_player
         moves = num_moves
+        new_state = state
         while not game.terminal_test(state, player) and not moves > MAX_MOVES:
             action = random.choice(list(game.actions(state, player)))
-            state = game.result(state, action, player)
+            new_state = game.result(state, action, player)
             player = game.our_player if player == game.other_player else game.other_player
             moves += 1
 
-        v = game.utility(state, player, moves)
+        v = game.utility(new_state, player, moves)
         return -v
 
     def backprop(n, utility):
