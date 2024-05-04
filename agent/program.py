@@ -16,13 +16,6 @@ class Agent:
         This constructor method runs when the referee instantiates the agent.
         Any setup and/or precomputation should be done here.
         """
-
-        match color:
-            case PlayerColor.RED:
-                print("Testing: I am playing as RED")
-            case PlayerColor.BLUE:
-                print("Testing: I am playing as BLUE")
-
         self.state = {}
         self.game = Game(color)
 
@@ -36,25 +29,7 @@ class Agent:
         # the agent is playing as BLUE or RED. Obviously this won't work beyond
         # the initial moves of the game, so you should use some game playing
         # technique(s) to determine the best action to take.
-        """
-        match self.game.ourPlayer:
-            case PlayerColor.RED:
-                print("Testing: RED is playing a PLACE action")
-                return PlaceAction(
-                    Coord(3, 3),
-                    Coord(3, 4),
-                    Coord(4, 3),
-                    Coord(4, 4)
-                )
-            case PlayerColor.BLUE:
-                print("Testing: BLUE is playing a PLACE action")
-                return PlaceAction(
-                    Coord(2, 3),
-                    Coord(2, 4),
-                    Coord(2, 5),
-                    Coord(2, 6)
-                )
-        """
+
         if self.game.first:
             return self.game.actions(self.state, self.game.our_player)
         else:
@@ -66,12 +41,10 @@ class Agent:
         turn. You should use it to update the agent's internal game state. 
         """
 
-        # There is only one action type, PlaceAction
         place_action: PlaceAction = action
-        c1, c2, c3, c4 = place_action.coords
         self.state = self.game.result(self.state, place_action, color)
 
         # Here we are just printing out the PlaceAction coordinates for
         # demonstration purposes. You should replace this with your own logic
         # to update your agent's internal game state representation.
-        print(f"Testing: {color} played PLACE action: {c1}, {c2}, {c3}, {c4}")
+        # print(f"Testing: {color} played PLACE action: {c1}, {c2}, {c3}, {c4}")

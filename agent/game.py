@@ -2,19 +2,15 @@
 # Project Part B: Game Playing Agent
 
 import itertools
-import random
-from random import sample
 import numpy as np
 
 from .hashing import init_board, board_hash
-from .helpers import (find_num_pieces, line_lengths, line_length_weight, MOVE_WEIGHT, PIECE_WEIGHT, LINE_WEIGHT,
-                           HOLE_WEIGHT)
-from .search_algorithms import (PlacementProblem, find_all_placements, find_starting_positions,
-                                     find_one_placement, find_holes)
+from .helpers import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, CHANGE_WEIGHT
+from .search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
-FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(3, 4)),
+FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(1, 4)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
 AB_CUTOFF = 4
 MAX_MOVES = 150
@@ -37,10 +33,22 @@ class Game:
         self.first = True
         self.hash_table = init_board()
         self.utility_values = {}
+        self.our_player_moves = {}
+        self.other_player_moves = {}
 
     def actions(self, state, colour):
         """Return a list of the allowable moves at this point."""
         if not self.first:
+            """
+            hash_val = board_hash(state, self.hash_table)
+            if colour == self.our_player:
+                if hash_val in self.our_player_moves:
+                    return self.our_player_moves[hash_val]
+            elif colour == self.other_player:
+                if hash_val in self.other_player_moves:
+                    return self.other_player_moves[hash_val]
+            """
+
             possible_actions = []
             place_actions = []
 
@@ -59,6 +67,11 @@ class Game:
             # Turn these combinations into PlaceActions and return
             for element in possible_actions:
                 place_actions.append(PlaceAction(element[0], element[1], element[2], element[3]))
+
+            #if colour == self.our_player:
+            #    self.our_player_moves[hash_val] = place_actions
+            #elif colour == self.other_player:
+            #    self.other_player_moves[hash_val] = place_actions
 
             return place_actions
 
@@ -124,15 +137,18 @@ class Game:
 
         return new_state
 
-    def heuristic(self, state, prev_state=None):
+    def heuristic(self, state, prev_state):
         """Return the value of this final state to player."""
-        hash_val = board_hash(state, self.hash_table)
+        current = board_hash(state, self.hash_table)
+        prev = board_hash(prev_state, self.hash_table)
+        hash_str = str(current) + str(prev)
+        hash_val = int(hash_str)
+
         if hash_val not in self.utility_values.keys():
-            value = utility_value(self, state)
+            value = utility_value(self, state, prev_state)
             self.utility_values[hash_val] = value
             return value
         else:
-            # print("Being used yayayayay!!!!!")
             return self.utility_values[hash_val]
 
     def utility(self, state, player, num_moves):
@@ -166,26 +182,26 @@ def alpha_beta_cutoff_search(state, game):
         return False
 
     # simulate move for our player, we want to maximise our outcome
-    def max_value(state, alpha, beta, depth):
+    def max_value(state, prev_state, alpha, beta, depth):
         if cutoff_test(state, depth, game.our_player):
-            return game.heuristic(state)
+            return game.heuristic(state, prev_state)
         v = -np.inf
 
         for move in select_best(state, game, game.our_player, False, branch_factor):
-            v = max(v, min_value(game.result(state, move, game.our_player), alpha, beta, depth + 1))
+            v = max(v, min_value(game.result(state, move, game.our_player), state, alpha, beta, depth + 1))
             if v >= beta:
                 return v
             alpha = max(alpha, v)
         return v
 
     # simulate move for the other player, they want to minimise our outcome
-    def min_value(state, alpha, beta, depth):
+    def min_value(state, prev_state, alpha, beta, depth):
         if cutoff_test(state, depth, game.other_player):
-            return game.heuristic(state)
+            return game.heuristic(state, prev_state)
         v = np.inf
 
         for move in select_best(state, game, game.other_player, True, branch_factor):
-            v = min(v, max_value(game.result(state, move, game.other_player), alpha, beta, depth + 1))
+            v = min(v, max_value(game.result(state, move, game.other_player), state, alpha, beta, depth + 1))
             if v <= alpha:
                 return v
             beta = min(beta, v)
@@ -197,68 +213,68 @@ def alpha_beta_cutoff_search(state, game):
     beta = np.inf
     best_action = None
 
-    print('all moves eval')
     size = len(game.actions(state, game.our_player))
-    print(f'done: {size} moves available')
+    print(f'{size} moves available')
     if size > 50:
         cutoff = 2
-        branch_factor = 10
+        branch_factor = 9
     elif 25 < size <= 50:
         cutoff = 4
-        branch_factor = 7
-    elif size < 25:
+        branch_factor = 6
+    elif 1 < size <= 25:
         cutoff = 6
-        branch_factor = 4
-
+        branch_factor = 3
+    elif size == 1:
+        return game.actions(state, game.our_player)[0]
 
     # we play first, play all possible moves and start alpha beta pruning
     for a in select_best(state, game, game.our_player, False, branch_factor):
-        v = min_value(game.result(state, a, game.our_player), best_score, beta, 1)
+        v = min_value(game.result(state, a, game.our_player), state, best_score, beta, 1)
         if v > best_score:
             best_score = v
             best_action = a
+
+    print(f"Value of: {game.heuristic(game.result(state, best_action, game.our_player), state)}")
     return best_action
 
 
-def select_best(state, game, player, min, select_amount):
-    #print('generating actions...')
+def select_best(state, game, player, is_min, select_amount):
     actions = game.actions(state, player)
-    #print('done!')
     scores = {}
-    #print('generating heuristics...')
-    for move in actions:
-        scores[move] = game.heuristic(game.result(state, move, player))
-    #print('done!')
 
-    if min:
-        keys = sorted(scores, key=scores.get, reverse=True)
-    else:
+    for move in actions:
+        scores[move] = game.heuristic(game.result(state, move, player), state)
+
+    if is_min:
         keys = sorted(scores, key=scores.get)
+    else:
+        keys = sorted(scores, key=scores.get, reverse=True)
 
     return keys[0:select_amount]
 
 
-
-
-def utility_value(game: Game, state: dict[Coord, PlayerColor]):
-    # finding available squares for player moves
-    # our_squares = find_starting_positions(state, game.our_player)
-    # their_squares = find_starting_positions(state, game.other_player)
-    our_moves = 0 #len(our_squares)
-    their_moves = 0 #len(their_squares)
-
-    """
-    for position in our_squares:
-        if find_one_placement(PlacementProblem(position, state)):
-            our_moves += 1
-
-    for position in their_squares:
-        if find_one_placement(PlacementProblem(position, state)):
-            their_moves += 1
-    """
+def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[Coord, PlayerColor]):
+    weight = 0
 
     # finding number of squares on board
     our_pieces, their_pieces = find_num_pieces(state, game.our_player)
+    weight += PIECE_WEIGHT * (our_pieces - their_pieces)
+
+    # finding change in piece counts since the last state
+    our_prev_pieces, their_prev_pieces = find_num_pieces(old_state, game.our_player)
+    our_loss = 0
+    their_loss = 0
+
+    our_player_change = our_pieces - our_prev_pieces
+    other_player_change = their_pieces - their_prev_pieces
+
+    if our_player_change < 0:
+        our_loss = abs(our_player_change)
+
+    if other_player_change < 0:
+        their_loss = abs(other_player_change)
+
+    weight += CHANGE_WEIGHT * (their_loss - our_loss)
 
     # finding length of lines on board and if they are too long or not
     row_len, col_len = line_lengths(state)
@@ -273,27 +289,11 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor]):
     num_high_len += col_weights[0]
     num_low_len += col_weights[1]
 
-    # find the holes with a size less than 4 on the board
-    """
-    holes = []
-    all_positions = our_squares + their_squares
-    for position in all_positions:
-        current_holes = find_holes(PlacementProblem(position, state))
-        for element in current_holes:
-            holes.append(element)
-
-    # Remove any duplicate states from the list
-    holes = list(holes for holes, _ in itertools.groupby(holes))
-    """
-    num_holes = 0  #len(holes)
-
-    weight = (MOVE_WEIGHT * (our_moves - their_moves) + PIECE_WEIGHT * (our_pieces - their_pieces) +
-              LINE_WEIGHT * (num_high_len - num_low_len) + HOLE_WEIGHT * num_holes)
-
-    # print(weight)
+    weight += LINE_WEIGHT * (num_high_len - num_low_len)
     return weight
 
 
+"""
 class MCT_Node:
     # Node in the Monte Carlo search tree, keeps track of the children states.
     def __init__(self, state, game, num_moves=0, parent=None, parent_action=None, U=0, N=0):
@@ -349,7 +349,7 @@ def monte_carlo_tree_search(state, game, N=1000):
             n.U += utility
         # draw state
         if utility == 0:
-             n.U += 0.5
+            n.U += 0.5
         n.N += 1
         if n.parent:
             backprop(n.parent, -utility)
@@ -365,3 +365,4 @@ def monte_carlo_tree_search(state, game, N=1000):
     max_state = max(root.children, key=lambda p: p.N)
 
     return root.children.get(max_state)
+"""

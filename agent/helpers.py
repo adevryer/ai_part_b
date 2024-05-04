@@ -3,14 +3,12 @@
 
 from referee.game import PlayerColor, Coord, BOARD_N
 
-NUM_PLAYERS = 2
-LOW_THRESHOLD = 2
-HIGH_THRESHOLD = 6
+LOW_THRESHOLD = 3
+HIGH_THRESHOLD = 7
 
-MOVE_WEIGHT = 2
-PIECE_WEIGHT = 5
+PIECE_WEIGHT = 10
+CHANGE_WEIGHT = 100
 LINE_WEIGHT = 5
-HOLE_WEIGHT = 3
 
 
 def find_num_pieces(board: dict[Coord, PlayerColor], our_player: PlayerColor):
