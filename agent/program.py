@@ -43,6 +43,7 @@ class Agent:
 
         place_action: PlaceAction = action
         self.state = self.game.result(self.state, place_action, color)
+        self.game.num_moves += 1
 
         # Here we are just printing out the PlaceAction coordinates for
         # demonstration purposes. You should replace this with your own logic

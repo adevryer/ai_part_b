@@ -113,9 +113,10 @@ def find_all_placements(problem, limit=SEARCH_LIMIT):
     return placements
 
 
+"""
 def find_one_placement(problem, limit=SEARCH_LIMIT):
-    """ Find if we are able to place at least one piece at the given coordinate. Adapted from AIMA's Python Library
-    function for depth-limited search. """
+    #Find if we are able to place at least one piece at the given coordinate. Adapted from AIMA's Python Library
+    #function for depth-limited search.
 
     def recursive_dls(node, curr_problem, curr_limit):
         if curr_limit == 1:
@@ -131,8 +132,8 @@ def find_one_placement(problem, limit=SEARCH_LIMIT):
 
 
 def find_holes(problem, limit=SEARCH_LIMIT):
-    """ Recursively finds all possible holes (gaps of empty squares of size less than 4) at a given coordinate.
-    Adapted from AIMA's Python Library function for depth-limited search."""
+    #Recursively finds all possible holes (gaps of empty squares of size less than 4) at a given coordinate.
+    #Adapted from AIMA's Python Library function for depth-limited search.
 
     placements = []
 
@@ -154,3 +155,4 @@ def find_holes(problem, limit=SEARCH_LIMIT):
 
     recursive_dls(PlacementNode(problem.initial, None), problem, limit)
     return placements
+"""

@@ -35,6 +35,7 @@ class Game:
         self.utility_values = {}
         self.our_player_moves = {}
         self.other_player_moves = {}
+        self.num_moves = 0
 
     def actions(self, state, colour):
         """Return a list of the allowable moves at this point."""
@@ -217,13 +218,13 @@ def alpha_beta_cutoff_search(state, game):
     print(f'{size} moves available')
     if size > 50:
         cutoff = 2
-        branch_factor = 9
+        branch_factor = 6
     elif 25 < size <= 50:
         cutoff = 4
-        branch_factor = 6
+        branch_factor = 4
     elif 1 < size <= 25:
         cutoff = 6
-        branch_factor = 3
+        branch_factor = 2
     elif size == 1:
         return game.actions(state, game.our_player)[0]
 
@@ -293,7 +294,6 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
     return weight
 
 
-"""
 class MCT_Node:
     # Node in the Monte Carlo search tree, keeps track of the children states.
     def __init__(self, state, game, num_moves=0, parent=None, parent_action=None, U=0, N=0):
@@ -314,13 +314,13 @@ def ucb(n, C=1.4):
     return np.inf if n.N == 0 else n.U / n.N + C * np.sqrt(np.log(n.parent.N) / n.N)
 
 
-def monte_carlo_tree_search(state, game, N=1000):
-    def select(n):
+def monte_carlo_tree_search(state, game, N=30):
+    def select(node):
         # select a leaf node in the tree
-        if n.children:
-            return select(max(n.children.keys(), key=ucb))
+        if node.children:
+            return select(max(node.children.keys(), key=ucb))
         else:
-            return n
+            return node
 
     def expand(n):
         # expand the leaf node by adding all its children states
@@ -335,7 +335,8 @@ def monte_carlo_tree_search(state, game, N=1000):
         moves = num_moves
         new_state = state
         while not game.terminal_test(state, player) and not moves > MAX_MOVES:
-            action = random.choice(list(game.actions(state, player)))
+            min_val = True if player == game.other_player else False
+            action = select_best(state, game, player, min_val, 1)[0]
             new_state = game.result(state, action, player)
             player = game.our_player if player == game.other_player else game.other_player
             moves += 1
@@ -343,26 +344,25 @@ def monte_carlo_tree_search(state, game, N=1000):
         v = game.utility(new_state, player, moves)
         return -v
 
-    def backprop(n, utility):
+    def backprop(node, utility):
         # passing the utility back to all parent nodes
         if utility > 0:
-            n.U += utility
+            node.U += utility
         # draw state
         if utility == 0:
-            n.U += 0.5
-        n.N += 1
-        if n.parent:
-            backprop(n.parent, -utility)
+            node.U += 0.5
+        node.N += 1
+        if node.parent:
+            backprop(node.parent, -utility)
 
     root = MCT_Node(state=state, game=game)
 
     for i in range(N):
         leaf = select(root)
         child = expand(leaf)
-        result = simulate(game, child.state, child.player)
+        result = simulate(game, child.state, child.player, game.num_moves)
         backprop(child, result)
 
     max_state = max(root.children, key=lambda p: p.N)
 
     return root.children.get(max_state)
-"""
