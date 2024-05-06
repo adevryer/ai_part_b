@@ -2,16 +2,18 @@
 # Project Part B: Game Playing Agent
 
 import itertools
+import numpy as np
 
 from agent.hashing_algorithms import init_board, board_hash
-from agent.utility_calculators import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, \
-    CHANGE_WEIGHT, MOVE_WEIGHT
+from agent.utility_calculators import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, \
+    LINE_WEIGHT, CHANGE_WEIGHT, MOVE_WEIGHT
 from agent.search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(1, 4)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
+MAX_MOVES = 150
 
 
 class Game:
@@ -52,6 +54,14 @@ class Game:
             # Turn these combinations into PlaceActions and return
             for element in possible_actions:
                 place_actions.append(PlaceAction(element[0], element[1], element[2], element[3]))
+
+            """
+            hash_val = board_hash(state, self.hash_table)
+            if colour == self.our_player:
+                self.our_player_moves[hash_val] = len(place_actions)
+            elif colour == self.other_player:
+                self.other_player_moves[hash_val] = len(place_actions)
+            """
 
             return place_actions
 
@@ -131,9 +141,23 @@ class Game:
         else:
             return self.utility_values[hash_val]
 
+    def utility(self, state, player, num_moves):
+        our_pieces, their_pieces = find_num_pieces(state, player)
 
-def greedy_agent(state, game):
-    return select_best(state, game, game.our_player, False, 1)[0]
+        # need to fix this a bit
+        if self.terminal_test(state, player):
+            return 1
+        elif num_moves > MAX_MOVES:
+            if our_pieces > their_pieces:
+                return 1
+            elif our_pieces < their_pieces:
+                return -1
+            else:
+                return 0
+
+    def terminal_test(self, state, colour):
+        """Return True if this is a final state for the game."""
+        return not self.actions(state, colour)
 
 
 def select_best(state, game, player, is_min, select_amount):
@@ -227,3 +251,77 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
 
     weight += LINE_WEIGHT * (num_high_len - num_low_len)
     return weight
+
+
+class MCT_Node:
+    # Node in the Monte Carlo search tree, keeps track of the children states.
+    def __init__(self, state, game, num_moves=0, parent=None, parent_action=None, U=0, N=0):
+        # self.__dict__.update(parent=parent, state=state, U=U, N=N)
+        self.state = state
+        self.parent = parent
+        self.parent_action = parent_action
+        self.player = game.our_player if parent is None else (game.other_player if parent == game.our_player
+                                                              else game.our_player)
+        self.num_moves = num_moves
+        self.U = U
+        self.N = N
+        self.children = []
+        self.tried_actions = None
+
+
+def ucb(n, C=1.4):
+    return np.inf if n.N == 0 else n.U / n.N + C * np.sqrt(np.log(n.parent.N) / n.N)
+
+
+def monte_carlo_tree_search(state, game, N=30):
+    def select(node):
+        # select a leaf node in the tree
+        if node.children:
+            return select(max(node.children.keys(), key=ucb))
+        else:
+            return node
+
+    def expand(n):
+        # expand the leaf node by adding all its children states
+        if not n.children and not game.terminal_test(n.state, n.player):
+            n.children = {MCT_Node(game=game, state=game.result(n.state, action), parent=n, parent_action=action):
+                              action for action in game.actions(n.state)}
+        return select(n)
+
+    def simulate(game, state, first_player, num_moves):
+        # simulate the utility of current state by random picking a step
+        player = first_player
+        moves = num_moves
+        new_state = state
+        while not game.terminal_test(state, player) and not moves > MAX_MOVES:
+            min_val = True if player == game.other_player else False
+            action = select_best(state, game, player, min_val, 1)[0]
+            new_state = game.result(state, action, player)
+            player = game.our_player if player == game.other_player else game.other_player
+            moves += 1
+
+        v = game.utility(new_state, player, moves)
+        return -v
+
+    def backprop(node, utility):
+        # passing the utility back to all parent nodes
+        if utility > 0:
+            node.U += utility
+        # draw state
+        if utility == 0:
+            node.U += 0.5
+        node.N += 1
+        if node.parent:
+            backprop(node.parent, -utility)
+
+    root = MCT_Node(state=state, game=game)
+
+    for i in range(N):
+        leaf = select(root)
+        child = expand(leaf)
+        result = simulate(game, child.state, child.player, game.num_moves)
+        backprop(child, result)
+
+    max_state = max(root.children, key=lambda p: p.N)
+
+    return root.children.get(max_state)

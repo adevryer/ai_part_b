@@ -4,7 +4,7 @@
 import itertools
 import numpy as np
 
-from .hashing import init_board, board_hash
+from .hashing_algorithms import init_board, board_hash
 from .utility_calculators import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, \
     LINE_WEIGHT, CHANGE_WEIGHT, MOVE_WEIGHT
 from .search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
@@ -13,17 +13,12 @@ from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 # We will always be able to place one of these two pieces on our first go
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(1, 4)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
-MAX_MOVES = 150
 
 
 class Game:
-    """A game is similar to a problem, but it has a utility for each
-    state and a terminal test instead of a path cost and a goal
-    test. To create a game, subclass this class and implement actions,
-    result, utility, and terminal_test. You may override display and
-    successors or you can inherit their default methods. You will also
-    need to set the .initial attribute to the initial state; this can
-    be done in the constructor."""
+    """ General class for a Game problem. Contains methods to find possible actions, results of actions,
+    a terminal state test and a heuristic value calculator for given game states. Adapted from AIMA's Python
+    code repository for gameplay. """
 
     def __init__(self, colour: PlayerColor):
         """The constructor specifies the initial board."""
@@ -32,9 +27,11 @@ class Game:
         self.first = True
         self.hash_table = init_board()
         self.utility_values = {}
+        self.our_player_moves = {}
+        self.other_player_moves = {}
 
     def actions(self, state, colour):
-        """Return a list of the allowable moves at this point."""
+        """ Return a list of the allowable moves at this point. """
         if not self.first:
             possible_actions = []
             place_actions = []
@@ -80,7 +77,7 @@ class Game:
             return FIRST_PIECES[0]
 
     def result(self, state, action: PlaceAction, colour: PlayerColor):
-        """Return the state that results from making a move from a state."""
+        """ Return the state that results from making a move from a state. """
         new_state = state.copy()
         new_state[action.c1] = colour
         new_state[action.c2] = colour
@@ -128,32 +125,21 @@ class Game:
         return new_state
 
     def heuristic(self, state, prev_state):
-        """Return the value of this final state to player."""
+        """ Return the value of this given state to player. """
+        # calculate the hash table value for the current and previous state
         current = board_hash(state, self.hash_table)
         prev = board_hash(prev_state, self.hash_table)
         hash_str = str(current) + str(prev)
         hash_val = int(hash_str)
 
         if hash_val not in self.utility_values.keys():
+            # haven't calculated before, cache and return
             value = utility_value(self, state, prev_state)
             self.utility_values[hash_val] = value
             return value
         else:
+            # calculated previously, just return cached value
             return self.utility_values[hash_val]
-
-    def utility(self, state, player, num_moves):
-        our_pieces, their_pieces = find_num_pieces(state, player)
-
-        # need to fix this a bit
-        if self.terminal_test(state, player):
-            return 1
-        elif num_moves > MAX_MOVES:
-            if our_pieces > their_pieces:
-                return 1
-            elif our_pieces < their_pieces:
-                return -1
-            else:
-                return 0
 
     def terminal_test(self, state, colour):
         """Return True if this is a final state for the game."""
@@ -161,8 +147,10 @@ class Game:
 
 
 def alpha_beta_cutoff_search(state, game):
-    """Search game to determine best action; use alpha-beta pruning.
-    This version cuts off search and uses an evaluation function."""
+    """ Search game to determine best action; use alpha-beta pruning. This version cuts off search and uses an
+    evaluation function. Also uses a greedy approach if we have a large number of moves and varies branching
+    factor and search depth depending on the number of initial moves. Adapted from AIMA's Python games code
+    repository for gameplay. """
     cutoff = int
     branch_factor = int
 
@@ -206,14 +194,18 @@ def alpha_beta_cutoff_search(state, game):
     size = len(game.actions(state, game.our_player))
     print(f'{size} moves available')
     if size > 50:
-        return select_best(state, game, game.our_player, False, 1)[0]
+        # if we have more than 50 moves, just play as a greedy agent
+        return select_best(state, game, game.our_player, False)[0]
     elif 25 < size <= 50:
+        # if we have between 26 and 50 moves, do alpha beta to depth 4 on the 5 best moves
         cutoff = 4
         branch_factor = 4
     elif 1 < size <= 25:
+        # if we have between 2 and 25 moves, do alpha beta to depth 6 on the 3 best moves
         cutoff = 6
         branch_factor = 2
     elif size == 1:
+        # only one move possible, return it immediately
         return game.actions(state, game.our_player)[0]
 
     # we play first, play all possible moves and start alpha beta pruning
@@ -223,11 +215,13 @@ def alpha_beta_cutoff_search(state, game):
             best_score = v
             best_action = a
 
+    # return the best action possible found during alpha beta search
     print(f"Value of: {game.heuristic(game.result(state, best_action, game.our_player), state)}")
     return best_action
 
 
-def select_best(state, game, player, is_min, select_amount):
+def select_best(state, game, player, is_min, select_amount=1):
+    """ Returns the specified number of moves with the highest (or lowest) heuristic value. """
     actions = game.actions(state, player)
     scores = {}
 
@@ -243,8 +237,10 @@ def select_best(state, game, player, is_min, select_amount):
 
 
 def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[Coord, PlayerColor]):
+    """ Calculates the heuristic value of a game state. """
     weight = 0
 
+    # find the number of squares where we could possibly make a move
     our_moves = len(find_starting_positions(state, game.our_player))
     their_moves = len(find_starting_positions(state, game.other_player))
     weight += MOVE_WEIGHT * (our_moves - their_moves)
@@ -317,80 +313,5 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
     num_low_len += col_weights[1]
 
     weight += LINE_WEIGHT * (num_high_len - num_low_len)
+
     return weight
-
-
-"""
-class MCT_Node:
-    # Node in the Monte Carlo search tree, keeps track of the children states.
-    def __init__(self, state, game, num_moves=0, parent=None, parent_action=None, U=0, N=0):
-        # self.__dict__.update(parent=parent, state=state, U=U, N=N)
-        self.state = state
-        self.parent = parent
-        self.parent_action = parent_action
-        self.player = game.our_player if parent is None else (game.other_player if parent == game.our_player
-                                                              else game.our_player)
-        self.num_moves = num_moves
-        self.U = U
-        self.N = N
-        self.children = []
-        self.tried_actions = None
-
-
-def ucb(n, C=1.4):
-    return np.inf if n.N == 0 else n.U / n.N + C * np.sqrt(np.log(n.parent.N) / n.N)
-
-
-def monte_carlo_tree_search(state, game, N=30):
-    def select(node):
-        # select a leaf node in the tree
-        if node.children:
-            return select(max(node.children.keys(), key=ucb))
-        else:
-            return node
-
-    def expand(n):
-        # expand the leaf node by adding all its children states
-        if not n.children and not game.terminal_test(n.state, n.player):
-            n.children = {MCT_Node(game=game, state=game.result(n.state, action), parent=n, parent_action=action):
-                              action for action in game.actions(n.state)}
-        return select(n)
-
-    def simulate(game, state, first_player, num_moves):
-        # simulate the utility of current state by random picking a step
-        player = first_player
-        moves = num_moves
-        new_state = state
-        while not game.terminal_test(state, player) and not moves > MAX_MOVES:
-            min_val = True if player == game.other_player else False
-            action = select_best(state, game, player, min_val, 1)[0]
-            new_state = game.result(state, action, player)
-            player = game.our_player if player == game.other_player else game.other_player
-            moves += 1
-
-        v = game.utility(new_state, player, moves)
-        return -v
-
-    def backprop(node, utility):
-        # passing the utility back to all parent nodes
-        if utility > 0:
-            node.U += utility
-        # draw state
-        if utility == 0:
-            node.U += 0.5
-        node.N += 1
-        if node.parent:
-            backprop(node.parent, -utility)
-
-    root = MCT_Node(state=state, game=game)
-
-    for i in range(N):
-        leaf = select(root)
-        child = expand(leaf)
-        result = simulate(game, child.state, child.player, game.num_moves)
-        backprop(child, result)
-
-    max_state = max(root.children, key=lambda p: p.N)
-
-    return root.children.get(max_state)
-"""
