@@ -5,8 +5,9 @@ import itertools
 import numpy as np
 
 from .hashing import init_board, board_hash
-from .helpers import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, CHANGE_WEIGHT
-from .search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
+from .helpers import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, CHANGE_WEIGHT, \
+    HOLE_WEIGHT, MOVE_WEIGHT
+from .search_algorithms import PlacementProblem, find_all_placements, find_starting_positions, find_holes
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
@@ -40,16 +41,6 @@ class Game:
     def actions(self, state, colour):
         """Return a list of the allowable moves at this point."""
         if not self.first:
-            """
-            hash_val = board_hash(state, self.hash_table)
-            if colour == self.our_player:
-                if hash_val in self.our_player_moves:
-                    return self.our_player_moves[hash_val]
-            elif colour == self.other_player:
-                if hash_val in self.other_player_moves:
-                    return self.other_player_moves[hash_val]
-            """
-
             possible_actions = []
             place_actions = []
 
@@ -69,10 +60,13 @@ class Game:
             for element in possible_actions:
                 place_actions.append(PlaceAction(element[0], element[1], element[2], element[3]))
 
-            #if colour == self.our_player:
-            #    self.our_player_moves[hash_val] = place_actions
-            #elif colour == self.other_player:
-            #    self.other_player_moves[hash_val] = place_actions
+            """
+            hash_val = board_hash(state, self.hash_table)
+            if colour == self.our_player:
+                self.our_player_moves[hash_val] = len(place_actions)
+            elif colour == self.other_player:
+                self.other_player_moves[hash_val] = len(place_actions)
+            """
 
             return place_actions
 
@@ -217,8 +211,7 @@ def alpha_beta_cutoff_search(state, game):
     size = len(game.actions(state, game.our_player))
     print(f'{size} moves available')
     if size > 50:
-        cutoff = 2
-        branch_factor = 6
+        return select_best(state, game, game.our_player, False, 1)[0]
     elif 25 < size <= 50:
         cutoff = 4
         branch_factor = 4
@@ -257,6 +250,25 @@ def select_best(state, game, player, is_min, select_amount):
 def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[Coord, PlayerColor]):
     weight = 0
 
+    our_moves = len(find_starting_positions(state, game.our_player))
+    their_moves = len(find_starting_positions(state, game.other_player))
+    weight += MOVE_WEIGHT * (our_moves - their_moves)
+
+    """
+    hash_val = board_hash(state, game.hash_table)
+    if hash_val in game.our_player_moves.keys():
+        our_moves = game.our_player_moves[hash_val]
+    else:
+        our_moves = len(game.actions(state, game.our_player))
+
+    if hash_val in game.other_player_moves.keys():
+        their_moves = game.other_player_moves[hash_val]
+    else:
+        their_moves = len(game.actions(state, game.other_player))
+
+    weight += MOVE_WEIGHT * (our_moves - their_moves)
+    """
+
     # finding number of squares on board
     our_pieces, their_pieces = find_num_pieces(state, game.our_player)
     weight += PIECE_WEIGHT * (our_pieces - their_pieces)
@@ -276,6 +288,25 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
         their_loss = abs(other_player_change)
 
     weight += CHANGE_WEIGHT * (their_loss - our_loss)
+
+    """
+    our_squares = find_starting_positions(state, game.our_player)
+    their_squares = find_starting_positions(state, game.other_player)
+
+    # find the holes with a size less than 4 on the board
+    holes = []
+    num_holes = 0
+    all_positions = our_squares + their_squares
+    for position in all_positions:
+        current_holes = find_holes(PlacementProblem(position, state))
+        for element in current_holes:
+            holes.append(element)
+
+    # Remove any duplicate states from the list
+    holes = list(holes for holes, _ in itertools.groupby(holes))
+    num_holes = len(holes)
+    weight += HOLE_WEIGHT * num_holes
+    """
 
     # finding length of lines on board and if they are too long or not
     row_len, col_len = line_lengths(state)
@@ -306,8 +337,8 @@ class MCT_Node:
         self.num_moves = num_moves
         self.U = U
         self.N = N
-        self.children = {}
-        # self.actions = None
+        self.children = []
+        self.tried_actions = None
 
 
 def ucb(n, C=1.4):
