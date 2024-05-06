@@ -2,7 +2,7 @@
 # Project Part B: Game Playing Agent
 
 from referee.game import PlayerColor, Action, PlaceAction, Coord
-from .game import Game, alpha_beta_cutoff_search
+from .game import Game, greedy_agent
 
 
 class Agent:
@@ -33,7 +33,7 @@ class Agent:
         if self.game.first:
             return self.game.actions(self.state, self.game.our_player)
         else:
-            return alpha_beta_cutoff_search(self.state, self.game)
+            return greedy_agent(self.state, self.game)
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
