@@ -4,7 +4,7 @@
 import itertools
 import random
 
-from helper_functions.search_algorithms import PlacementProblem, find_starting_positions, find_all_placements
+from agent.search_algorithms import PlacementProblem, find_starting_positions, find_all_placements
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go

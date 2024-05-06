@@ -3,10 +3,10 @@
 
 import itertools
 
-from helper_functions.hashing import init_board, board_hash
-from helper_functions.utility_calculators import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, \
+from agent.hashing import init_board, board_hash
+from agent.utility_calculators import find_num_pieces, line_lengths, line_length_weight, PIECE_WEIGHT, LINE_WEIGHT, \
     CHANGE_WEIGHT, MOVE_WEIGHT
-from helper_functions.search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
+from agent.search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
