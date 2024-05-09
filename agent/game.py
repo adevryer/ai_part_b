@@ -11,12 +11,12 @@ from .search_algorithms import PlacementProblem, find_all_placements, find_start
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
-FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(1, 4)),
-                PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
+FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
+                PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(7, 9))]
 
 
 class Game:
-    """ General class for a Game problem. Contains methods to find possible actions, results of actions,
+    """ Class for the Game problem. Contains methods to find possible actions, results of actions,
     a terminal state test and a heuristic value calculator for given game states. Adapted from AIMA's Python
     code repository for gameplay. """
 
@@ -193,17 +193,13 @@ def alpha_beta_cutoff_search(state, game):
 
     size = len(game.actions(state, game.our_player))
     print(f'{size} moves available')
-    if size > 50:
+    if size > 40:
         # if we have more than 50 moves, just play as a greedy agent
         return select_best(state, game, game.our_player, False)[0]
-    elif 25 < size <= 50:
-        # if we have between 26 and 50 moves, do alpha beta to depth 4 on the 5 best moves
+    elif 1 < size <= 40:
+        # if we have between 2 and 50 moves, do alpha beta to depth 4 on the 4 best moves
         cutoff = 4
         branch_factor = 4
-    elif 1 < size <= 25:
-        # if we have between 2 and 25 moves, do alpha beta to depth 6 on the 3 best moves
-        cutoff = 6
-        branch_factor = 2
     elif size == 1:
         # only one move possible, return it immediately
         return game.actions(state, game.our_player)[0]
@@ -299,6 +295,7 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
     weight += HOLE_WEIGHT * num_holes
     """
 
+    """
     # finding length of lines on board and if they are too long or not
     row_len, col_len = line_lengths(state)
     num_high_len = 0
@@ -313,5 +310,6 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
     num_low_len += col_weights[1]
 
     weight += LINE_WEIGHT * (num_high_len - num_low_len)
+    """
 
     return weight
