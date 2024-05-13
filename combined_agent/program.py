@@ -1,8 +1,8 @@
 # COMP30024 Artificial Intelligence, Semester 1 2024
 # Project Part B: Game Playing Agent
 
-from referee.game import PlayerColor, Action, PlaceAction
-from .game import Game, play_action
+from referee.game import PlayerColor, Action, PlaceAction, Coord
+from .game import Game, alpha_beta_cutoff_search
 
 
 class Agent:
@@ -25,10 +25,15 @@ class Agent:
         to take an action. It must always return an action object. 
         """
 
+        # Below we have hardcoded two actions to be played depending on whether
+        # the agent is playing as BLUE or RED. Obviously this won't work beyond
+        # the initial moves of the game, so you should use some game playing
+        # technique(s) to determine the best action to take.
+
         if self.game.first:
             return self.game.actions(self.state, self.game.our_player)
         else:
-            return play_action(self.state, self.game)
+            return alpha_beta_cutoff_search(self.state, self.game)
 
     def update(self, color: PlayerColor, action: Action, **referee: dict):
         """
@@ -38,3 +43,8 @@ class Agent:
 
         place_action: PlaceAction = action
         self.state = self.game.result(self.state, place_action, color)
+
+        # Here we are just printing out the PlaceAction coordinates for
+        # demonstration purposes. You should replace this with your own logic
+        # to update your agent's internal game state representation.
+        # print(f"Testing: {color} played PLACE action: {c1}, {c2}, {c3}, {c4}")
