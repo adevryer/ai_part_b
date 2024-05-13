@@ -23,9 +23,8 @@ LINE_WEIGHT = 5
 
 
 class Game:
-    """ Class for the Game problem. Contains methods to find possible actions, results of actions,
-    a terminal state test and a heuristic value calculator for given game states. Adapted from AIMA's Python
-    code repository for gameplay. """
+    """ Class for the Game problem. Contains methods to find possible actions, results of actions and a heuristic
+    value calculator for given game states. Adapted from AIMA's Python code repository for gameplay."""
 
     def __init__(self, colour: PlayerColor):
         """ The constructor specifies the initial board as well as other game elements (e.g. transposition table,
@@ -139,13 +138,9 @@ class Game:
             # calculated previously, just return cached value
             return self.utility_values[hash_val]
 
-    def terminal_test(self, state, colour):
-        """Return True if this is a final state for the game."""
-        return not self.actions(state, colour)
-
 
 def play_action(state, game):
-    """ Search game to determine best action using our greedy agent. """
+    """ Determine the best action to play using our greedy agent and return it. """
     actions = game.actions(state, game.our_player)
     size = len(actions)
     # print(f'{size} moves available')
@@ -173,7 +168,7 @@ def select_best(state, game, actions, player, select_amount=1):
 
     keys = sorted(scores, key=scores.get, reverse=True)
 
-    # if we have more than 500 actions, just return the highest valued state
+    # if we have more than 400 actions, just return the highest valued state
     # very unlikely to lead to a death state above this threshold
     if len(actions) > EVAL_THRESHOLD:
         return keys[0:select_amount]

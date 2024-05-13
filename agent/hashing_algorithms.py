@@ -7,6 +7,9 @@ from referee.game import PlayerColor, Coord, BOARD_N
 
 NUM_PLAYERS = 2
 
+"""Code in this file has been adapted and heavily modified from code found on GeeksForGeeks' article on Zobrist 
+Hashing for Minimax Agents. Citation can be found in the report and the link is also here: 
+https://www.geeksforgeeks.org/minimax-algorithm-in-game-theory-set-5-zobrist-hashing/"""
 
 def init_board():
     # create an 11 * 11 * 2 array filled with random 16-bit numbers
