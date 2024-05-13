@@ -1,5 +1,8 @@
 # COMP30024 Artificial Intelligence, Semester 1 2024
-# Project Part A: Single Player Tetress
+# Project Part B: Game Playing Agent
+
+# NOTE: THE CODE IN THIS FILE WAS ORIGINALLY WRITTEN FOR OUR PART A SUBMISSION FOR SINGLE-PLAYER TETRESS.
+# MODIFICATIONS WERE MADE WHERE NECESSARY TO WORK WITH THE REFEREE.
 
 from referee.game import Direction, Coord, PlayerColor
 
@@ -8,7 +11,7 @@ SEARCH_LIMIT = 4
 
 class PlacementNode:
     """ A node for a potential placement of a square on the board to form a piece. Adapted and modified from the
-    AIMA's Python Library function for a search tree node."""
+    AIMA's Python Library function for a search tree node. """
 
     def __init__(self, state, parent=None):
         """Create a search tree Node, derived from a parent by an action."""
@@ -45,7 +48,7 @@ class PlacementProblem:
 
     def actions(self, state, last_moves):
         """ Return the list of actions which can be achieved given the current state of the game board and the last
-        moves done in parent search tree nodes"""
+        moves done in parent search tree nodes """
         # Pieces can be placed in four possible directions on the game board
         possible_moves = [state + Direction.Up, state + Direction.Down, state + Direction.Left,
                           state + Direction.Right]

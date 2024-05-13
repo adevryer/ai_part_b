@@ -5,8 +5,7 @@ import itertools
 import numpy as np
 
 from agent.hashing_algorithms import init_board, board_hash
-from agent.utility_calculators import find_num_pieces, PIECE_WEIGHT, CHANGE_WEIGHT, MOVE_WEIGHT, line_length_weight, \
-    line_lengths, LINE_WEIGHT
+from agent.utility_calculators import find_num_pieces, line_length_weight, line_lengths
 from agent.search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
@@ -14,6 +13,11 @@ from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(7, 9))]
 
+# evaluation function feature weights
+MOVE_WEIGHT = 10
+PIECE_WEIGHT = 125
+CHANGE_WEIGHT = 300
+LINE_WEIGHT = 5
 
 class Game:
     """ Class for the Game problem. Contains methods to find possible actions, results of actions,

@@ -8,7 +8,7 @@ from agent.search_algorithms import PlacementProblem, find_starting_positions, f
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
-FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(1, 4)),
+FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(3, 3), Coord(4, 3), Coord(5, 3)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(8, 7))]
 
 

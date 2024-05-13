@@ -4,14 +4,22 @@
 import itertools
 
 from .hashing_algorithms import init_board, board_hash
-from .utility_calculators import find_num_pieces, PIECE_WEIGHT, CHANGE_WEIGHT, MOVE_WEIGHT, line_length_weight, \
-    line_lengths, LINE_WEIGHT
+from .utility_calculators import find_num_pieces, line_lengths, line_length_weight
 from .search_algorithms import PlacementProblem, find_all_placements, find_starting_positions
 from referee.game import PlayerColor, PlaceAction, Coord, BOARD_N
 
 # We will always be able to place one of these two pieces on our first go
-FIRST_PIECES = [PlaceAction(Coord(2, 3), Coord(2, 4), Coord(2, 5), Coord(2, 6)),
+FIRST_PIECES = [PlaceAction(Coord(2, 2), Coord(2, 3), Coord(2, 4), Coord(2, 5)),
                 PlaceAction(Coord(7, 6), Coord(7, 7), Coord(7, 8), Coord(7, 9))]
+
+# move number threshold to start looking two moves ahead to search for death moves
+EVAL_THRESHOLD = 400
+
+# evaluation function feature weights
+MOVE_WEIGHT = 10
+PIECE_WEIGHT = 125
+CHANGE_WEIGHT = 300
+LINE_WEIGHT = 5
 
 
 class Game:
@@ -21,7 +29,7 @@ class Game:
 
     def __init__(self, colour: PlayerColor):
         """ The constructor specifies the initial board as well as other game elements (e.g. transposition table,
-        Zobrist hashing table etc)."""
+        Zobrist hashing table etc). """
         self.our_player = colour
         self.other_player = (PlayerColor.BLUE if colour == PlayerColor.RED else PlayerColor.RED)
         self.first = True
@@ -140,7 +148,7 @@ def play_action(state, game):
     """ Search game to determine best action using our greedy agent. """
     actions = game.actions(state, game.our_player)
     size = len(actions)
-    print(f'{size} moves available')
+    # print(f'{size} moves available')
 
     if size > 1:
         # if we have more than one move, just play as a greedy agent and check two moves ahead for death states
@@ -149,10 +157,12 @@ def play_action(state, game):
         # only one move possible, return it immediately
         return actions[0]
 
+
 def select_best(state, game, actions, player, select_amount=1):
     """ Returns the specified number of moves with the highest (or lowest) heuristic value. Also checks if the
     agent can play a "death state" in the next move (i.e. a move which will end the game). It will return a move
-    which does not lead to a death state (if one exists) even if it is not the highest heuristic value. """
+    which does not lead to a death state (if one exists) even if it is not the highest heuristic value. Returns as
+    a list in case we want to return more than one highest move later on. """
     scores = {}
     currently_selected = 0
     final_selection = []
@@ -163,15 +173,17 @@ def select_best(state, game, actions, player, select_amount=1):
 
     keys = sorted(scores, key=scores.get, reverse=True)
 
-    # if we have more than 300 actions, just return the highest one
+    # if we have more than 500 actions, just return the highest valued state
     # very unlikely to lead to a death state above this threshold
-    if len(actions) > 300:
+    if len(actions) > EVAL_THRESHOLD:
         return keys[0:select_amount]
 
     else:
         for action in keys:
+            # check if this action leads to death
             death_action = is_state_good(game, state, action)
 
+            # it does not, record this action
             if not death_action:
                 final_selection.append(action)
                 currently_selected += 1
@@ -180,9 +192,10 @@ def select_best(state, game, actions, player, select_amount=1):
                 break
 
         if len(final_selection) == 0:
-            print("We give up XD")
+            # print("We give up XD")
             return keys[0:select_amount]
         else:
+            # return the state which does not have any death moves
             return final_selection
 
 
@@ -201,7 +214,7 @@ def is_state_good(game, state, action):
 
         # if we have no moves in this state, prune it from the list of available moves to play
         if len(our_next_moves) == 0:
-            print("Pruned")
+            # print("Pruned")
             return True
 
     # not a death state, we can play this move with confidence
@@ -212,15 +225,18 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
     """ Calculates the heuristic value of a game state. """
     weight = 0
 
+    # FEATURE 1
     # find the number of squares where we could possibly make a move
     our_moves = len(find_starting_positions(state, game.our_player))
     their_moves = len(find_starting_positions(state, game.other_player))
     weight += MOVE_WEIGHT * (our_moves - their_moves)
 
+    # FEATURE 2
     # finding number of squares on board
     our_pieces, their_pieces = find_num_pieces(state, game.our_player)
     weight += PIECE_WEIGHT * (our_pieces - their_pieces)
 
+    # FEATURE 3
     # finding change in piece counts since the last state
     our_prev_pieces, their_prev_pieces = find_num_pieces(old_state, game.our_player)
     our_loss = 0
@@ -237,6 +253,7 @@ def utility_value(game: Game, state: dict[Coord, PlayerColor], old_state: dict[C
 
     weight += CHANGE_WEIGHT * (their_loss - our_loss)
 
+    # FEATURE 4
     # finding length of lines on board and if they are too long or not
     row_len, col_len = line_lengths(state)
     num_high_len = 0
